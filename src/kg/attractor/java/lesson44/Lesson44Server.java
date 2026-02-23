@@ -17,6 +17,9 @@ public class Lesson44Server extends BasicServer {
     public Lesson44Server(String host, int port) throws IOException {
         super(host, port);
         registerGet("/sample", this::freemarkerSampleHandler);
+        registerGet("/books", this::booksHandler);
+        registerGet("/book", this::bookHandler);
+        registerGet("/employee", this::employeeHandler);
     }
 
     private static Configuration initFreeMarker() {
@@ -79,5 +82,34 @@ public class Lesson44Server extends BasicServer {
         // возвращаем экземпляр тестовой модели-данных
         // которую freemarker будет использовать для наполнения шаблона
         return new SampleDataModel();
+    }
+    private void booksHandler(HttpExchange exchange) {
+        var books = DataStorage.getBooks();
+        renderTemplate(exchange, "books.ftl", books);
+    }
+
+    private void bookHandler(HttpExchange exchange) {
+        String query = exchange.getRequestURI().getQuery();
+        int id = Integer.parseInt(query.split("=")[1]);
+
+        var books = DataStorage.getBooks();
+        Book found = books.stream()
+                .filter(b -> b.getId() == id)
+                .findFirst()
+                .orElse(null);
+
+        renderTemplate(exchange, "book.ftl", found);
+    }
+    private void employeeHandler(HttpExchange exchange) {
+        String query = exchange.getRequestURI().getQuery();
+        int id = Integer.parseInt(query.split("=")[1]);
+
+        var employees = DataStorage.getEmployees();
+        Employee found = employees.stream()
+                .filter(e -> e.getId() == id)
+                .findFirst()
+                .orElse(null);
+
+        renderTemplate(exchange, "employee.ftl", found);
     }
 }
