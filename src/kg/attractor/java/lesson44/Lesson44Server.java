@@ -10,6 +10,9 @@ import kg.attractor.java.server.ContentType;
 import kg.attractor.java.server.ResponseCodes;
 
 import java.io.*;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 public class Lesson44Server extends BasicServer {
     private final static Configuration freemarker = initFreeMarker();
@@ -17,6 +20,9 @@ public class Lesson44Server extends BasicServer {
     public Lesson44Server(String host, int port) throws IOException {
         super(host, port);
         registerGet("/sample", this::freemarkerSampleHandler);
+        registerGet("/books", this::booksHandler);
+        registerGet("/book", this::bookHandler);
+        registerGet("/employee", this::employeeHandler);
     }
 
     private static Configuration initFreeMarker() {
@@ -43,6 +49,7 @@ public class Lesson44Server extends BasicServer {
     private void freemarkerSampleHandler(HttpExchange exchange) {
         renderTemplate(exchange, "sample.html", getSampleDataModel());
     }
+
 
     protected void renderTemplate(HttpExchange exchange, String templateFile, Object dataModel) {
         try {
@@ -79,5 +86,88 @@ public class Lesson44Server extends BasicServer {
         // возвращаем экземпляр тестовой модели-данных
         // которую freemarker будет использовать для наполнения шаблона
         return new SampleDataModel();
+    }
+
+
+    private void booksHandler(HttpExchange exchange) throws IOException {
+
+        List<Book> books = DataStorage.getBooks();
+
+        Map<String, Object> model = new HashMap<>();
+        model.put("books", books);
+
+        renderTemplate(exchange, "books.ftl", model);
+    }
+
+
+    private void bookHandler(HttpExchange exchange) throws IOException {
+
+        String query = exchange.getRequestURI().getQuery();
+
+        if (query == null) {
+            exchange.sendResponseHeaders(400, 0);
+            exchange.getResponseBody().write("Missing id".getBytes());
+            exchange.close();
+            return;
+        }
+
+        int id = Integer.parseInt(query.split("=")[1]);
+
+        Book foundBook = null;
+
+        for (Book book : DataStorage.getBooks()) {
+            if (book.getId() == id) {
+                foundBook = book;
+                break;
+            }
+        }
+
+        if (foundBook == null) {
+            exchange.sendResponseHeaders(404, 0);
+            exchange.getResponseBody().write("Book not found".getBytes());
+            exchange.close();
+            return;
+        }
+
+        Map<String, Object> model = new HashMap<>();
+        model.put("book", foundBook);
+
+        renderTemplate(exchange, "book.ftl", model);
+    }
+
+
+    private void employeeHandler(HttpExchange exchange) throws IOException {
+
+        String query = exchange.getRequestURI().getQuery();
+
+        if (query == null) {
+            exchange.sendResponseHeaders(400, 0);
+            exchange.getResponseBody().write("Missing id".getBytes());
+            exchange.close();
+            return;
+        }
+
+        int id = Integer.parseInt(query.split("=")[1]);
+
+        Employee foundEmployee = null;
+
+        for (Employee employee : DataStorage.getEmployees()) {
+            if (employee.getId() == id) {
+                foundEmployee = employee;
+                break;
+            }
+        }
+
+        if (foundEmployee == null) {
+            exchange.sendResponseHeaders(404, 0);
+            exchange.getResponseBody().write("Employee not found".getBytes());
+            exchange.close();
+            return;
+        }
+
+        Map<String, Object> model = new HashMap<>();
+        model.put("employee", foundEmployee);
+
+        renderTemplate(exchange, "employee.ftl", model);
     }
 }
