@@ -1,0 +1,42 @@
+[
+  {
+    "id": 1,
+    "title": "Dune",
+    "author": "Frank Herbert",
+    "image": "images/dune.jpg",
+    "description": "Epic science fiction saga about the desert planet Arrakis.",
+    "status": "AVAILABLE"
+  },
+  {
+    "id": 2,
+    "title": "1984",
+    "author": "George Orwell",
+    "image": "images/1984.jpg",
+    "description": "Dystopian novel about totalitarian society.",
+    "status": "TAKEN"
+  },
+  {
+    "id": 3,
+    "title": "The Hobbit",
+    "author": "J.R.R. Tolkien",
+    "image": "images/hobbit.jpg",
+    "description": "Fantasy adventure of Bilbo Baggins.",
+    "status": "AVAILABLE"
+  },
+  {
+    "id": 4,
+    "title": "Clean Code",
+    "author": "Robert Martin",
+    "image": "images/cleancode.jpg",
+    "description": "A handbook of agile software craftsmanship.",
+    "status": "AVAILABLE"
+  },
+  {
+    "id": 5,
+    "title": "The Martian",
+    "author": "Andy Weir",
+    "image": "images/martian.jpg",
+    "description": "Sci-fi survival story on Mars.",
+    "status": "TAKEN"
+  }
+]
