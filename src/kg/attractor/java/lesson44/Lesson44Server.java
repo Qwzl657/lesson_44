@@ -10,6 +10,9 @@ import kg.attractor.java.server.ContentType;
 import kg.attractor.java.server.ResponseCodes;
 
 import java.io.*;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 public class Lesson44Server extends BasicServer {
     private final static Configuration freemarker = initFreeMarker();
@@ -47,6 +50,7 @@ public class Lesson44Server extends BasicServer {
         renderTemplate(exchange, "sample.html", getSampleDataModel());
     }
 
+
     protected void renderTemplate(HttpExchange exchange, String templateFile, Object dataModel) {
         try {
             // Загружаем шаблон из файла по имени.
@@ -83,33 +87,87 @@ public class Lesson44Server extends BasicServer {
         // которую freemarker будет использовать для наполнения шаблона
         return new SampleDataModel();
     }
-    private void booksHandler(HttpExchange exchange) {
-        var books = DataStorage.getBooks();
-        renderTemplate(exchange, "books.ftl", books);
+
+
+    private void booksHandler(HttpExchange exchange) throws IOException {
+
+        List<Book> books = DataStorage.getBooks();
+
+        Map<String, Object> model = new HashMap<>();
+        model.put("books", books);
+
+        renderTemplate(exchange, "books.ftl", model);
     }
 
-    private void bookHandler(HttpExchange exchange) {
+
+    private void bookHandler(HttpExchange exchange) throws IOException {
+
         String query = exchange.getRequestURI().getQuery();
+
+        if (query == null) {
+            exchange.sendResponseHeaders(400, 0);
+            exchange.getResponseBody().write("Missing id".getBytes());
+            exchange.close();
+            return;
+        }
+
         int id = Integer.parseInt(query.split("=")[1]);
 
-        var books = DataStorage.getBooks();
-        Book found = books.stream()
-                .filter(b -> b.getId() == id)
-                .findFirst()
-                .orElse(null);
+        Book foundBook = null;
 
-        renderTemplate(exchange, "book.ftl", found);
+        for (Book book : DataStorage.getBooks()) {
+            if (book.getId() == id) {
+                foundBook = book;
+                break;
+            }
+        }
+
+        if (foundBook == null) {
+            exchange.sendResponseHeaders(404, 0);
+            exchange.getResponseBody().write("Book not found".getBytes());
+            exchange.close();
+            return;
+        }
+
+        Map<String, Object> model = new HashMap<>();
+        model.put("book", foundBook);
+
+        renderTemplate(exchange, "book.ftl", model);
     }
-    private void employeeHandler(HttpExchange exchange) {
+
+
+    private void employeeHandler(HttpExchange exchange) throws IOException {
+
         String query = exchange.getRequestURI().getQuery();
+
+        if (query == null) {
+            exchange.sendResponseHeaders(400, 0);
+            exchange.getResponseBody().write("Missing id".getBytes());
+            exchange.close();
+            return;
+        }
+
         int id = Integer.parseInt(query.split("=")[1]);
 
-        var employees = DataStorage.getEmployees();
-        Employee found = employees.stream()
-                .filter(e -> e.getId() == id)
-                .findFirst()
-                .orElse(null);
+        Employee foundEmployee = null;
 
-        renderTemplate(exchange, "employee.ftl", found);
+        for (Employee employee : DataStorage.getEmployees()) {
+            if (employee.getId() == id) {
+                foundEmployee = employee;
+                break;
+            }
+        }
+
+        if (foundEmployee == null) {
+            exchange.sendResponseHeaders(404, 0);
+            exchange.getResponseBody().write("Employee not found".getBytes());
+            exchange.close();
+            return;
+        }
+
+        Map<String, Object> model = new HashMap<>();
+        model.put("employee", foundEmployee);
+
+        renderTemplate(exchange, "employee.ftl", model);
     }
 }
