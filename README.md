@@ -46,6 +46,18 @@ http://localhost:9889/book?id=1
 Страница сотрудника:
 http://localhost:9889/employee?id=1
 
+
+HomeWork_45 (Новые маршруты):
+
+Регистрация:
+http://localhost:9889/register
+
+Логин:
+http://localhost:9889/login
+
+Профиль:
+http://localhost:9889/profile
+
 ⸻
 
 Как запустить проект
