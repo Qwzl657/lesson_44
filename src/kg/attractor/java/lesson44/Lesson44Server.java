@@ -15,6 +15,9 @@ import java.util.List;
 import java.util.Map;
 
 public class Lesson44Server extends BasicServer {
+    private final Map<String, String> users = new HashMap<>();
+    private String currentUser;
+
     private final static Configuration freemarker = initFreeMarker();
 
     public Lesson44Server(String host, int port) throws IOException {
@@ -170,4 +173,5 @@ public class Lesson44Server extends BasicServer {
 
         renderTemplate(exchange, "employee.ftl", model);
     }
+
 }
