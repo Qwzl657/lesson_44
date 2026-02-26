@@ -1,5 +1,10 @@
 package kg.attractor.java.lesson44;
 
+import java.io.*;
+import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
+import java.util.stream.Collectors;
+import kg.attractor.java.server.Utils;
 import com.sun.net.httpserver.HttpExchange;
 import freemarker.template.Configuration;
 import freemarker.template.Template;
@@ -183,5 +188,28 @@ public class Lesson44Server extends BasicServer {
 
         renderTemplate(exchange, "employee.ftl", model);
     }
+    protected String getBody(HttpExchange exchange) {
 
+        InputStream input = exchange.getRequestBody();
+        Charset utf8 = StandardCharsets.UTF_8;
+        InputStreamReader isr = new InputStreamReader(input, utf8);
+
+        try (BufferedReader reader = new BufferedReader(isr)) {
+            return reader.lines().collect(Collectors.joining(""));
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+        return "";
+    }
+    protected void redirect303(HttpExchange exchange, String path) {
+
+        try {
+            exchange.getResponseHeaders().add("Location", path);
+            exchange.sendResponseHeaders(303, 0);
+            exchange.getResponseBody().close();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
 }
