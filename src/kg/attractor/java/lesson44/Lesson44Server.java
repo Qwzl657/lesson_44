@@ -42,11 +42,11 @@ public class Lesson44Server extends BasicServer {
         registerGet("/book", this::bookHandler);
         registerGet("/employee", this::employeeHandler);
 
-//        registerGet("/register", this::registerGet);
-//        registerPost("/register", this::registerPost);
-//        registerGet("/login", this::loginGet);
-//        registerPost("/login", this::loginPost);
-//        registerGet("/profile", this::profileGet);
+        registerGet("/register", this::registerGet);
+        registerPost("/register", this::registerPost);
+        registerGet("/login", this::loginGet);
+        registerPost("/login", this::loginPost);
+        registerGet("/profile", this::profileGet);
     }
 
     private static Configuration initFreeMarker() {
@@ -272,5 +272,17 @@ public class Lesson44Server extends BasicServer {
         currentUser = email;
 
         redirect303(exchange, "/profile");
+    }
+    private void profileGet(HttpExchange exchange) {
+
+        Map<String, Object> model = new HashMap<>();
+
+        if (currentUser == null) {
+            model.put("user", "Некий пользователь");
+        } else {
+            model.put("user", currentUser);
+        }
+
+        renderTemplate(exchange, "profile.ftl", model);
     }
 }
