@@ -22,6 +22,10 @@ import java.util.Map;
 
 public class Lesson44Server extends BasicServer {
 
+    private void registerGet(HttpExchange exchange) {
+        renderTemplate(exchange, "register.ftl", new HashMap<>());
+    }
+
     private final Map<String, String> users = new HashMap<>();
     private String currentUser;
 
@@ -202,6 +206,7 @@ public class Lesson44Server extends BasicServer {
 
         return "";
     }
+
     protected void redirect303(HttpExchange exchange, String path) {
 
         try {
@@ -211,5 +216,31 @@ public class Lesson44Server extends BasicServer {
         } catch (IOException e) {
             e.printStackTrace();
         }
+    }
+    private void registerPost(HttpExchange exchange) {
+
+        String raw = getBody(exchange);
+        Map<String, String> data = Utils.parseUrlEncoded(raw, "&");
+
+        String email = data.get("email");
+        String password = data.get("password");
+
+        Map<String, Object> model = new HashMap<>();
+
+        if (email == null || password == null) {
+            model.put("error", "Fill all fields");
+            renderTemplate(exchange, "register.ftl", model);
+            return;
+        }
+
+        if (users.containsKey(email)) {
+            model.put("error", "User already exists");
+            renderTemplate(exchange, "register.ftl", model);
+            return;
+        }
+
+        users.put(email, password);
+
+        redirect303(exchange, "/login");
     }
 }
