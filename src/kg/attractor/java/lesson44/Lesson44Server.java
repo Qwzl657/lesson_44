@@ -1,5 +1,10 @@
 package kg.attractor.java.lesson44;
 
+import java.io.*;
+import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
+import java.util.stream.Collectors;
+import kg.attractor.java.server.Utils;
 import com.sun.net.httpserver.HttpExchange;
 import freemarker.template.Configuration;
 import freemarker.template.Template;
@@ -8,6 +13,7 @@ import freemarker.template.TemplateExceptionHandler;
 import kg.attractor.java.server.BasicServer;
 import kg.attractor.java.server.ContentType;
 import kg.attractor.java.server.ResponseCodes;
+import kg.attractor.java.server.RouteHandler;
 
 import java.io.*;
 import java.util.HashMap;
@@ -15,6 +21,18 @@ import java.util.List;
 import java.util.Map;
 
 public class Lesson44Server extends BasicServer {
+
+    private void loginGet(HttpExchange exchange) {
+        renderTemplate(exchange, "login.ftl", new HashMap<>());
+    }
+
+    private void registerGet(HttpExchange exchange) {
+        renderTemplate(exchange, "register.ftl", new HashMap<>());
+    }
+
+    private final Map<String, String> users = new HashMap<>();
+    private String currentUser;
+
     private final static Configuration freemarker = initFreeMarker();
 
     public Lesson44Server(String host, int port) throws IOException {
@@ -23,6 +41,12 @@ public class Lesson44Server extends BasicServer {
         registerGet("/books", this::booksHandler);
         registerGet("/book", this::bookHandler);
         registerGet("/employee", this::employeeHandler);
+
+        registerGet("/register", this::registerGet);
+        registerPost("/register", this::registerPost);
+        registerGet("/login", this::loginGet);
+        registerPost("/login", this::loginPost);
+        registerGet("/profile", this::profileGet);
     }
 
     private static Configuration initFreeMarker() {
@@ -49,7 +73,9 @@ public class Lesson44Server extends BasicServer {
     private void freemarkerSampleHandler(HttpExchange exchange) {
         renderTemplate(exchange, "sample.html", getSampleDataModel());
     }
-
+    protected void registerPost(String route, RouteHandler handler) {
+        getRoutes().put("POST " + route, handler);
+    }
 
     protected void renderTemplate(HttpExchange exchange, String templateFile, Object dataModel) {
         try {
@@ -169,5 +195,94 @@ public class Lesson44Server extends BasicServer {
         model.put("employee", foundEmployee);
 
         renderTemplate(exchange, "employee.ftl", model);
+    }
+    protected String getBody(HttpExchange exchange) {
+
+        InputStream input = exchange.getRequestBody();
+        Charset utf8 = StandardCharsets.UTF_8;
+        InputStreamReader isr = new InputStreamReader(input, utf8);
+
+        try (BufferedReader reader = new BufferedReader(isr)) {
+            return reader.lines().collect(Collectors.joining(""));
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+        return "";
+    }
+
+    protected void redirect303(HttpExchange exchange, String path) {
+
+        try {
+            exchange.getResponseHeaders().add("Location", path);
+            exchange.sendResponseHeaders(303, 0);
+            exchange.getResponseBody().close();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+    private void registerPost(HttpExchange exchange) {
+
+        String raw = getBody(exchange);
+        Map<String, String> data = Utils.parseUrlEncoded(raw, "&");
+
+        String email = data.get("email");
+        String password = data.get("password");
+
+        Map<String, Object> model = new HashMap<>();
+
+        if (email == null || password == null) {
+            model.put("error", "Fill all fields");
+            renderTemplate(exchange, "register.ftl", model);
+            return;
+        }
+
+        if (users.containsKey(email)) {
+            model.put("error", "User already exists");
+            renderTemplate(exchange, "register.ftl", model);
+            return;
+        }
+
+        users.put(email, password);
+
+        redirect303(exchange, "/login");
+    }
+    private void loginPost(HttpExchange exchange) {
+
+        String raw = getBody(exchange);
+        Map<String, String> data = Utils.parseUrlEncoded(raw, "&");
+
+        String email = data.get("email");
+        String password = data.get("password");
+
+        Map<String, Object> model = new HashMap<>();
+
+        if (!users.containsKey(email)) {
+            model.put("error", "User not found");
+            renderTemplate(exchange, "login.ftl", model);
+            return;
+        }
+
+        if (!users.get(email).equals(password)) {
+            model.put("error", "Wrong password");
+            renderTemplate(exchange, "login.ftl", model);
+            return;
+        }
+
+        currentUser = email;
+
+        redirect303(exchange, "/profile");
+    }
+    private void profileGet(HttpExchange exchange) {
+
+        Map<String, Object> model = new HashMap<>();
+
+        if (currentUser == null) {
+            model.put("user", "Некий пользователь");
+        } else {
+            model.put("user", currentUser);
+        }
+
+        renderTemplate(exchange, "profile.ftl", model);
     }
 }
