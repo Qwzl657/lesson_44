@@ -8,6 +8,7 @@ import freemarker.template.TemplateExceptionHandler;
 import kg.attractor.java.server.BasicServer;
 import kg.attractor.java.server.ContentType;
 import kg.attractor.java.server.ResponseCodes;
+import kg.attractor.java.server.RouteHandler;
 
 import java.io.*;
 import java.util.HashMap;
@@ -15,6 +16,7 @@ import java.util.List;
 import java.util.Map;
 
 public class Lesson44Server extends BasicServer {
+
     private final Map<String, String> users = new HashMap<>();
     private String currentUser;
 
@@ -52,7 +54,9 @@ public class Lesson44Server extends BasicServer {
     private void freemarkerSampleHandler(HttpExchange exchange) {
         renderTemplate(exchange, "sample.html", getSampleDataModel());
     }
-
+    protected void registerPost(String route, RouteHandler handler) {
+        getRoutes().put("POST " + route, handler);
+    }
 
     protected void renderTemplate(HttpExchange exchange, String templateFile, Object dataModel) {
         try {
