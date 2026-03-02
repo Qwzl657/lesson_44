@@ -10,87 +10,80 @@ import kg.attractor.java.server.ContentType;
 import kg.attractor.java.server.ResponseCodes;
 
 import java.io.*;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.nio.charset.StandardCharsets;
+import java.util.*;
 
 public class Lesson44Server extends BasicServer {
-    private final static Configuration freemarker = initFreeMarker();
+
+    private static final Configuration freemarker = initFreeMarker();
+
+    // ====== 45 (авторизация) ======
+    private final Map<String, String> users = new HashMap<>();
+    private String currentUser;
 
     public Lesson44Server(String host, int port) throws IOException {
         super(host, port);
-        registerGet("/sample", this::freemarkerSampleHandler);
+
+        // ===== 44 =====
         registerGet("/books", this::booksHandler);
         registerGet("/book", this::bookHandler);
         registerGet("/employee", this::employeeHandler);
+
+        // ===== 45 =====
+        registerGet("/register", this::registerGet);
+        registerPost("/register", this::registerPost);
+
+        registerGet("/login", this::loginGet);
+        registerPost("/login", this::loginPost);
+
+        registerGet("/profile", this::profileGet);
     }
+
+    // =====================================================
+    // ================== FreeMarker ========================
+    // =====================================================
 
     private static Configuration initFreeMarker() {
         try {
             Configuration cfg = new Configuration(Configuration.VERSION_2_3_29);
-            // путь к каталогу в котором у нас хранятся шаблоны
-            // это может быть совершенно другой путь, чем тот, откуда сервер берёт файлы
-            // которые отправляет пользователю
             cfg.setDirectoryForTemplateLoading(new File("data"));
-
-            // прочие стандартные настройки о них читать тут
-            // https://freemarker.apache.org/docs/pgui_quickstart_createconfiguration.html
             cfg.setDefaultEncoding("UTF-8");
             cfg.setTemplateExceptionHandler(TemplateExceptionHandler.RETHROW_HANDLER);
-            cfg.setLogTemplateExceptions(false);
-            cfg.setWrapUncheckedExceptions(true);
-            cfg.setFallbackOnNullLoopVariable(false);
             return cfg;
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
     }
 
-    private void freemarkerSampleHandler(HttpExchange exchange) {
-        renderTemplate(exchange, "sample.html", getSampleDataModel());
-    }
-
-
-    protected void renderTemplate(HttpExchange exchange, String templateFile, Object dataModel) {
+    protected void renderTemplate(HttpExchange exchange, String template, Object model) {
         try {
-            // Загружаем шаблон из файла по имени.
-            // Шаблон должен находится по пути, указанном в конфигурации
-            Template temp = freemarker.getTemplate(templateFile);
+            Template temp = freemarker.getTemplate(template);
 
-            // freemarker записывает преобразованный шаблон в объект класса writer
-            // а наш сервер отправляет клиенту массивы байт
-            // по этому нам надо сделать "мост" между этими двумя системами
-
-            // создаём поток, который сохраняет всё, что в него будет записано в байтовый массив
             ByteArrayOutputStream stream = new ByteArrayOutputStream();
-            // создаём объект, который умеет писать в поток и который подходит для freemarker
             try (OutputStreamWriter writer = new OutputStreamWriter(stream)) {
-
-                // обрабатываем шаблон заполняя его данными из модели
-                // и записываем результат в объект "записи"
-                temp.process(dataModel, writer);
+                temp.process(model, writer);
                 writer.flush();
-
-                // получаем байтовый поток
-                var data = stream.toByteArray();
-
-                // отправляем результат клиенту
-                sendByteData(exchange, ResponseCodes.OK, ContentType.TEXT_HTML, data);
             }
+
+            sendByteData(exchange,
+                    ResponseCodes.OK,
+                    ContentType.TEXT_HTML,
+                    stream.toByteArray());
+
         } catch (IOException | TemplateException e) {
             e.printStackTrace();
         }
     }
 
-    private SampleDataModel getSampleDataModel() {
-        // возвращаем экземпляр тестовой модели-данных
-        // которую freemarker будет использовать для наполнения шаблона
-        return new SampleDataModel();
+    protected void registerPost(String route, kg.attractor.java.server.RouteHandler handler) {
+        getRoutes().put("POST " + route, handler);
     }
 
+    // =====================================================
+    // ====================== 44 ===========================
+    // =====================================================
 
-    private void booksHandler(HttpExchange exchange) throws IOException {
-
+    private void booksHandler(HttpExchange exchange) {
         List<Book> books = DataStorage.getBooks();
 
         Map<String, Object> model = new HashMap<>();
@@ -99,33 +92,26 @@ public class Lesson44Server extends BasicServer {
         renderTemplate(exchange, "books.ftl", model);
     }
 
-
     private void bookHandler(HttpExchange exchange) throws IOException {
 
-        String query = exchange.getRequestURI().getQuery();
+        Map<String, String> params = parseQuery(exchange);
+        String idStr = params.get("id");
 
-        if (query == null) {
-            exchange.sendResponseHeaders(400, 0);
-            exchange.getResponseBody().write("Missing id".getBytes());
-            exchange.close();
+        if (idStr == null) {
+            sendText(exchange, 400, "Missing id");
             return;
         }
 
-        int id = Integer.parseInt(query.split("=")[1]);
+        int id = Integer.parseInt(idStr);
 
-        Book foundBook = null;
-
-        for (Book book : DataStorage.getBooks()) {
-            if (book.getId() == id) {
-                foundBook = book;
-                break;
-            }
-        }
+        Book foundBook = DataStorage.getBooks()
+                .stream()
+                .filter(b -> b.getId() == id)
+                .findFirst()
+                .orElse(null);
 
         if (foundBook == null) {
-            exchange.sendResponseHeaders(404, 0);
-            exchange.getResponseBody().write("Book not found".getBytes());
-            exchange.close();
+            sendText(exchange, 404, "Book not found");
             return;
         }
 
@@ -135,33 +121,26 @@ public class Lesson44Server extends BasicServer {
         renderTemplate(exchange, "book.ftl", model);
     }
 
-
     private void employeeHandler(HttpExchange exchange) throws IOException {
 
-        String query = exchange.getRequestURI().getQuery();
+        Map<String, String> params = parseQuery(exchange);
+        String idStr = params.get("id");
 
-        if (query == null) {
-            exchange.sendResponseHeaders(400, 0);
-            exchange.getResponseBody().write("Missing id".getBytes());
-            exchange.close();
+        if (idStr == null) {
+            sendText(exchange, 400, "Missing id");
             return;
         }
 
-        int id = Integer.parseInt(query.split("=")[1]);
+        int id = Integer.parseInt(idStr);
 
-        Employee foundEmployee = null;
-
-        for (Employee employee : DataStorage.getEmployees()) {
-            if (employee.getId() == id) {
-                foundEmployee = employee;
-                break;
-            }
-        }
+        Employee foundEmployee = DataStorage.getEmployees()
+                .stream()
+                .filter(e -> e.getId() == id)
+                .findFirst()
+                .orElse(null);
 
         if (foundEmployee == null) {
-            exchange.sendResponseHeaders(404, 0);
-            exchange.getResponseBody().write("Employee not found".getBytes());
-            exchange.close();
+            sendText(exchange, 404, "Employee not found");
             return;
         }
 
@@ -169,5 +148,146 @@ public class Lesson44Server extends BasicServer {
         model.put("employee", foundEmployee);
 
         renderTemplate(exchange, "employee.ftl", model);
+    }
+
+    // =====================================================
+    // ====================== 45 ===========================
+    // =====================================================
+
+    private void registerGet(HttpExchange exchange) {
+        renderTemplate(exchange, "register.ftl", new HashMap<>());
+    }
+
+    private void loginGet(HttpExchange exchange) {
+        renderTemplate(exchange, "login.ftl", new HashMap<>());
+    }
+
+    private void profileGet(HttpExchange exchange) {
+
+        Map<String, Object> model = new HashMap<>();
+
+        if (currentUser == null) {
+            model.put("user", "Некий пользователь");
+        } else {
+            model.put("user", currentUser);
+        }
+
+        renderTemplate(exchange, "profile.ftl", model);
+    }
+
+    private void registerPost(HttpExchange exchange) throws IOException {
+
+        Map<String, String> data = parseBody(exchange);
+
+        String email = data.get("email");
+        String password = data.get("password");
+
+        Map<String, Object> model = new HashMap<>();
+
+        if (email == null || password == null) {
+            model.put("error", "Fill all fields");
+            renderTemplate(exchange, "register.ftl", model);
+            return;
+        }
+
+        if (users.containsKey(email)) {
+            model.put("error", "User already exists");
+            renderTemplate(exchange, "register.ftl", model);
+            return;
+        }
+
+        users.put(email, password);
+
+        redirect(exchange, "/login");
+    }
+
+    private void loginPost(HttpExchange exchange) throws IOException {
+
+        Map<String, String> data = parseBody(exchange);
+
+        String email = data.get("email");
+        String password = data.get("password");
+
+        Map<String, Object> model = new HashMap<>();
+
+        if (!users.containsKey(email)) {
+            model.put("error", "User not found");
+            renderTemplate(exchange, "login.ftl", model);
+            return;
+        }
+
+        if (!users.get(email).equals(password)) {
+            model.put("error", "Wrong password");
+            renderTemplate(exchange, "login.ftl", model);
+            return;
+        }
+
+        currentUser = email;
+
+        redirect(exchange, "/profile");
+    }
+
+    // =====================================================
+    // ================= ВСПОМОГАТЕЛЬНЫЕ ===================
+    // =====================================================
+
+    private Map<String, String> parseQuery(HttpExchange exchange) {
+
+        Map<String, String> result = new HashMap<>();
+        String query = exchange.getRequestURI().getQuery();
+
+        if (query == null) return result;
+
+        String[] pairs = query.split("&");
+
+        for (String pair : pairs) {
+            if (!pair.contains("=")) continue;
+            String[] parts = pair.split("=");
+            if (parts.length == 2) {
+                result.put(parts[0], parts[1]);
+            }
+        }
+
+        return result;
+    }
+
+    private Map<String, String> parseBody(HttpExchange exchange) throws IOException {
+
+        InputStream input = exchange.getRequestBody();
+        BufferedReader reader = new BufferedReader(
+                new InputStreamReader(input, StandardCharsets.UTF_8));
+
+        StringBuilder raw = new StringBuilder();
+        String line;
+
+        while ((line = reader.readLine()) != null) {
+            raw.append(line);
+        }
+
+        Map<String, String> result = new HashMap<>();
+        String[] pairs = raw.toString().split("&");
+
+        for (String pair : pairs) {
+            if (!pair.contains("=")) continue;
+            String[] parts = pair.split("=");
+            if (parts.length == 2) {
+                result.put(parts[0], parts[1]);
+            }
+        }
+
+        return result;
+    }
+
+    private void redirect(HttpExchange exchange, String path) throws IOException {
+        exchange.getResponseHeaders().add("Location", path);
+        exchange.sendResponseHeaders(303, -1);
+        exchange.close();
+    }
+
+    private void sendText(HttpExchange exchange, int code, String text) throws IOException {
+        exchange.sendResponseHeaders(code, text.getBytes().length);
+        OutputStream os = exchange.getResponseBody();
+        os.write(text.getBytes());
+        os.close();
     }
 }
