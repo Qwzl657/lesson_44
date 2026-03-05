@@ -1,0 +1,9 @@
+<h1>Session: ${sessionId}</h1>
+
+<h2>Global visit counter ${globalVisit} times</h2>
+
+<ul>
+    <#list cookies?keys as key>
+    <li>${key} - ${cookies[key]}</li>
+</#list>
+</ul>
