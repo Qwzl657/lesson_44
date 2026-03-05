@@ -1,20 +1,25 @@
-<h1>Профиль</h1>
+<h1>Профиль сотрудника</h1>
 
-<p>Пользователь: ${user}</p>
+<p><b>ФИО:</b> ${employee.fullName}</p>
+<p><b>ID:</b> ${employee.id}</p>
 
-<h2>Взятые книги</h2>
-
+<h2>Текущие книги</h2>
 <ul>
-<#list books as book>
+<#list currentBooks as book>
     <li>
-        Книга id: ${book}
-        <a href="/returnBook?id=${book}">Вернуть</a>
+        ${book.title}
+        <a href="/returnBook?id=${book.id}">Вернуть</a>
     </li>
 </#list>
 </ul>
 
+<h2>История книг</h2>
+<ul>
+<#list pastBooks as book>
+    <li>${book.title}</li>
+</#list>
+</ul>
+
 <a href="/books">Все книги</a>
-
-<br><br>
-
+<br>
 <a href="/logout">Выйти</a>
