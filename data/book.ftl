@@ -1,14 +1,10 @@
-<h1>Список книг</h1>
+<h1>${book.title}</h1>
 
-<ul>
-<#list books as book>
-<li>
-${book.title}
+<p><b>Автор:</b> ${book.author}</p>
+<p><b>Статус:</b> ${book.status}</p>
 
-<a href="/giveBook?id=${book.id}">
-Взять
-</a>
+<img src="/${book.image}" width="200">
 
-</li>
-</#list>
-</ul>
+<p>${book.description}</p>
+
+<a href="/books">Назад</a>
