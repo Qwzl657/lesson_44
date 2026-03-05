@@ -116,6 +116,10 @@ http://localhost:9889/profile
 
 Homework 46–47
 
+Проверка cookie:
+Через Dev tools
+Чтобы открыть F12 -> Application -> cookies
+
 Взять книгу:
 http://localhost:9889/giveBook?id=1
 
