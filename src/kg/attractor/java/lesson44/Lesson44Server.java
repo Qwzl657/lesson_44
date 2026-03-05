@@ -29,7 +29,7 @@ public class Lesson44Server extends BasicServer {
     private final Map<String, List<Integer>> currentBooks = new HashMap<>();
     private final Map<String, List<Integer>> pastBooks = new HashMap<>();
 
-    //  НОВОЕ — глобальный контроль занятых книг
+
     private final Map<Integer, String> takenBooks = new HashMap<>();
 
     private final static Configuration freemarker = initFreeMarker();
@@ -88,9 +88,7 @@ public class Lesson44Server extends BasicServer {
         getRoutes().put("POST " + route, handler);
     }
 
-    // ========================
-    // REGISTER
-    // ========================
+
 
     private void registerGet(HttpExchange exchange) {
         renderTemplate(exchange, "register.ftl", new HashMap<>());
@@ -119,9 +117,7 @@ public class Lesson44Server extends BasicServer {
         redirect303(exchange, "/login");
     }
 
-    // ========================
-    // LOGIN
-    // ========================
+
 
     private void loginGet(HttpExchange exchange) {
         renderTemplate(exchange, "login.ftl", new HashMap<>());
@@ -150,9 +146,7 @@ public class Lesson44Server extends BasicServer {
         redirect303(exchange, "/profile");
     }
 
-    // ========================
-    // PROFILE
-    // ========================
+
 
     private void profileGet(HttpExchange exchange) {
         String email = getUser(exchange);
@@ -185,9 +179,7 @@ public class Lesson44Server extends BasicServer {
         renderTemplate(exchange, "profile.ftl", model);
     }
 
-    // ========================
-    // GIVE BOOK
-    // ========================
+
 
     private void giveBookHandler(HttpExchange exchange) {
 
@@ -202,7 +194,7 @@ public class Lesson44Server extends BasicServer {
 
         int id = Integer.parseInt(params.get("id"));
 
-        //  ПРОВЕРКА 1 — уже занята?
+
         if (takenBooks.containsKey(id)) {
             redirect303(exchange, "/books");
             return;
@@ -211,13 +203,13 @@ public class Lesson44Server extends BasicServer {
         List<Integer> userCurrent =
                 currentBooks.getOrDefault(email, new ArrayList<>());
 
-        //  ПРОВЕРКА 2 — уже взял эту книгу?
+
         if (userCurrent.contains(id)) {
             redirect303(exchange, "/profile");
             return;
         }
 
-        //  ПРОВЕРКА 3 — лимит 2 книги
+
         if (userCurrent.size() >= 2) {
             redirect303(exchange, "/profile");
             return;
@@ -231,9 +223,7 @@ public class Lesson44Server extends BasicServer {
         redirect303(exchange, "/profile");
     }
 
-    // ========================
-    // RETURN BOOK
-    // ========================
+
 
     private void returnBookHandler(HttpExchange exchange) {
 
@@ -270,9 +260,7 @@ public class Lesson44Server extends BasicServer {
         redirect303(exchange, "/profile");
     }
 
-    // ========================
-    // BOOKS
-    // ========================
+
 
     private void booksHandler(HttpExchange exchange) {
         Map<String, Object> model = new HashMap<>();
@@ -301,9 +289,7 @@ public class Lesson44Server extends BasicServer {
         renderTemplate(exchange, "book.ftl", model);
     }
 
-    // ========================
-    // LOGOUT
-    // ========================
+
 
     private void logoutHandler(HttpExchange exchange) {
         String cookie = getCookies(exchange);
@@ -321,9 +307,7 @@ public class Lesson44Server extends BasicServer {
         redirect303(exchange, "/login");
     }
 
-    // ========================
-    // UTILS
-    // ========================
+
 
     private String getUser(HttpExchange exchange) {
         String cookie = getCookies(exchange);
