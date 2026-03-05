@@ -22,20 +22,23 @@ import java.util.*;
 
 public class Lesson44Server extends BasicServer {
 
-    private final Map<String, String> users = new HashMap<>();
+    private final Map<String, Employee> users = new HashMap<>();
+    private final Map<String, String> passwords = new HashMap<>();
     private final Map<String, String> sessions = new HashMap<>();
-    private final Map<String, List<Integer>> userBooks = new HashMap<>();
+
+    private final Map<String, List<Integer>> currentBooks = new HashMap<>();
+    private final Map<String, List<Integer>> pastBooks = new HashMap<>();
+
+
+    private final Map<Integer, String> takenBooks = new HashMap<>();
 
     private final static Configuration freemarker = initFreeMarker();
 
     public Lesson44Server(String host, int port) throws IOException {
         super(host, port);
 
-        registerGet("/sample", this::freemarkerSampleHandler);
-
         registerGet("/books", this::booksHandler);
         registerGet("/book", this::bookHandler);
-        registerGet("/employee", this::employeeHandler);
 
         registerGet("/register", this::registerGet);
         registerPost("/register", this::registerPost);
@@ -70,12 +73,9 @@ public class Lesson44Server extends BasicServer {
             ByteArrayOutputStream stream = new ByteArrayOutputStream();
 
             try (OutputStreamWriter writer = new OutputStreamWriter(stream)) {
-
                 temp.process(dataModel, writer);
                 writer.flush();
-
                 byte[] data = stream.toByteArray();
-
                 sendByteData(exchange, ResponseCodes.OK, ContentType.TEXT_HTML, data);
             }
 
@@ -88,100 +88,18 @@ public class Lesson44Server extends BasicServer {
         getRoutes().put("POST " + route, handler);
     }
 
-    private void loginGet(HttpExchange exchange) {
-        renderTemplate(exchange, "login.ftl", new HashMap<>());
-    }
+
 
     private void registerGet(HttpExchange exchange) {
         renderTemplate(exchange, "register.ftl", new HashMap<>());
     }
 
-    private void freemarkerSampleHandler(HttpExchange exchange) {
-        renderTemplate(exchange, "sample.html", new SampleDataModel());
-    }
-
-    private void booksHandler(HttpExchange exchange) throws IOException {
-
-        List<Book> books = DataStorage.getBooks();
-
-        Map<String, Object> model = new HashMap<>();
-        model.put("books", books);
-
-        renderTemplate(exchange, "books.ftl", model);
-    }
-
-    private void bookHandler(HttpExchange exchange) throws IOException {
-
-        String query = exchange.getRequestURI().getQuery();
-        int id = Integer.parseInt(query.split("=")[1]);
-
-        Book foundBook = null;
-
-        for (Book book : DataStorage.getBooks()) {
-            if (book.getId() == id) {
-                foundBook = book;
-                break;
-            }
-        }
-
-        Map<String, Object> model = new HashMap<>();
-        model.put("book", foundBook);
-
-        renderTemplate(exchange, "book.ftl", model);
-    }
-
-    private void employeeHandler(HttpExchange exchange) throws IOException {
-
-        String query = exchange.getRequestURI().getQuery();
-        int id = Integer.parseInt(query.split("=")[1]);
-
-        Employee foundEmployee = null;
-
-        for (Employee employee : DataStorage.getEmployees()) {
-            if (employee.getId() == id) {
-                foundEmployee = employee;
-                break;
-            }
-        }
-
-        Map<String, Object> model = new HashMap<>();
-        model.put("employee", foundEmployee);
-
-        renderTemplate(exchange, "employee.ftl", model);
-    }
-
-    protected String getBody(HttpExchange exchange) {
-
-        InputStream input = exchange.getRequestBody();
-        Charset utf8 = StandardCharsets.UTF_8;
-        InputStreamReader isr = new InputStreamReader(input, utf8);
-
-        try (BufferedReader reader = new BufferedReader(isr)) {
-            return reader.lines().collect(Collectors.joining(""));
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-
-        return "";
-    }
-
-    protected void redirect303(HttpExchange exchange, String path) {
-
-        try {
-            exchange.getResponseHeaders().add("Location", path);
-            exchange.sendResponseHeaders(303, 0);
-            exchange.close();
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-    }
-
     private void registerPost(HttpExchange exchange) {
-
         String raw = getBody(exchange);
         Map<String, String> data = Utils.parseUrlEncoded(raw, "&");
 
         String email = data.get("email");
+        String name = data.get("name");
         String password = data.get("password");
 
         if (users.containsKey(email)) {
@@ -191,21 +109,28 @@ public class Lesson44Server extends BasicServer {
             return;
         }
 
-        users.put(email, password);
+        Employee employee = new Employee(users.size() + 1, name);
+
+        users.put(email, employee);
+        passwords.put(email, password);
 
         redirect303(exchange, "/login");
     }
 
-    private void loginPost(HttpExchange exchange) {
 
+
+    private void loginGet(HttpExchange exchange) {
+        renderTemplate(exchange, "login.ftl", new HashMap<>());
+    }
+
+    private void loginPost(HttpExchange exchange) {
         String raw = getBody(exchange);
         Map<String, String> data = Utils.parseUrlEncoded(raw, "&");
 
         String email = data.get("email");
         String password = data.get("password");
 
-        if (!users.containsKey(email) || !users.get(email).equals(password)) {
-
+        if (!passwords.containsKey(email) || !passwords.get(email).equals(password)) {
             Map<String, Object> model = new HashMap<>();
             model.put("error", "Wrong login");
             renderTemplate(exchange, "login.ftl", model);
@@ -213,7 +138,6 @@ public class Lesson44Server extends BasicServer {
         }
 
         String sessionId = UUID.randomUUID().toString();
-
         sessions.put(sessionId, email);
 
         exchange.getResponseHeaders()
@@ -222,8 +146,9 @@ public class Lesson44Server extends BasicServer {
         redirect303(exchange, "/profile");
     }
 
-    private void profileGet(HttpExchange exchange) {
 
+
+    private void profileGet(HttpExchange exchange) {
         String email = getUser(exchange);
 
         if (email == null) {
@@ -231,64 +156,143 @@ public class Lesson44Server extends BasicServer {
             return;
         }
 
+        Employee employee = users.get(email);
+
+        List<Integer> current = currentBooks.getOrDefault(email, new ArrayList<>());
+        List<Integer> past = pastBooks.getOrDefault(email, new ArrayList<>());
+
+        List<Book> allBooks = DataStorage.getBooks();
+
+        List<Book> currentList = new ArrayList<>();
+        List<Book> pastList = new ArrayList<>();
+
+        for (Book book : allBooks) {
+            if (current.contains(book.getId())) currentList.add(book);
+            if (past.contains(book.getId())) pastList.add(book);
+        }
+
         Map<String, Object> model = new HashMap<>();
-        model.put("user", email);
-        model.put("books", userBooks.getOrDefault(email, new ArrayList<>()));
+        model.put("employee", employee);
+        model.put("currentBooks", currentList);
+        model.put("pastBooks", pastList);
 
         renderTemplate(exchange, "profile.ftl", model);
     }
 
+
+
     private void giveBookHandler(HttpExchange exchange) {
 
         String email = getUser(exchange);
-
         if (email == null) {
             redirect303(exchange, "/login");
             return;
         }
 
-        String query = exchange.getRequestURI().getQuery();
-        int id = Integer.parseInt(query.split("=")[1]);
+        Map<String, String> params =
+                Utils.parseUrlEncoded(exchange.getRequestURI().getQuery(), "&");
 
-        List<Integer> books = userBooks.getOrDefault(email, new ArrayList<>());
+        int id = Integer.parseInt(params.get("id"));
 
-        if (books.size() >= 2) {
+
+        if (takenBooks.containsKey(id)) {
+            redirect303(exchange, "/books");
+            return;
+        }
+
+        List<Integer> userCurrent =
+                currentBooks.getOrDefault(email, new ArrayList<>());
+
+
+        if (userCurrent.contains(id)) {
             redirect303(exchange, "/profile");
             return;
         }
 
-        books.add(id);
 
-        userBooks.put(email, books);
+        if (userCurrent.size() >= 2) {
+            redirect303(exchange, "/profile");
+            return;
+        }
+
+        userCurrent.add(id);
+        currentBooks.put(email, userCurrent);
+
+        takenBooks.put(id, email); //  отмечаем как занятую
 
         redirect303(exchange, "/profile");
     }
 
+
+
     private void returnBookHandler(HttpExchange exchange) {
 
         String email = getUser(exchange);
-
         if (email == null) {
             redirect303(exchange, "/login");
             return;
         }
 
-        String query = exchange.getRequestURI().getQuery();
-        int id = Integer.parseInt(query.split("=")[1]);
+        Map<String, String> params =
+                Utils.parseUrlEncoded(exchange.getRequestURI().getQuery(), "&");
 
-        List<Integer> books = userBooks.getOrDefault(email, new ArrayList<>());
+        int id = Integer.parseInt(params.get("id"));
 
-        books.remove((Integer) id);
+        List<Integer> userCurrent =
+                currentBooks.getOrDefault(email, new ArrayList<>());
 
-        userBooks.put(email, books);
+        if (!userCurrent.contains(id)) {
+            redirect303(exchange, "/profile");
+            return;
+        }
+
+        userCurrent.remove((Integer) id);
+        currentBooks.put(email, userCurrent);
+
+        takenBooks.remove(id); //  освобождаем книгу
+
+        List<Integer> history =
+                pastBooks.getOrDefault(email, new ArrayList<>());
+
+        history.add(id);
+        pastBooks.put(email, history);
 
         redirect303(exchange, "/profile");
     }
 
+
+
+    private void booksHandler(HttpExchange exchange) {
+        Map<String, Object> model = new HashMap<>();
+        model.put("books", DataStorage.getBooks());
+        renderTemplate(exchange, "books.ftl", model);
+    }
+
+    private void bookHandler(HttpExchange exchange) {
+        Map<String, String> params =
+                Utils.parseUrlEncoded(exchange.getRequestURI().getQuery(), "&");
+
+        int id = Integer.parseInt(params.get("id"));
+
+        Book found = null;
+
+        for (Book b : DataStorage.getBooks()) {
+            if (b.getId() == id) {
+                found = b;
+                break;
+            }
+        }
+
+        Map<String, Object> model = new HashMap<>();
+        model.put("book", found);
+
+        renderTemplate(exchange, "book.ftl", model);
+    }
+
+
+
     private void logoutHandler(HttpExchange exchange) {
-
         String cookie = getCookies(exchange);
-
         Map<String, String> cookies = Utils.parseUrlEncoded(cookie, ";");
 
         String sessionId = cookies.get("SESSION");
@@ -303,25 +307,42 @@ public class Lesson44Server extends BasicServer {
         redirect303(exchange, "/login");
     }
 
+
+
     private String getUser(HttpExchange exchange) {
-
         String cookie = getCookies(exchange);
-
         Map<String, String> cookies = Utils.parseUrlEncoded(cookie, ";");
-
         String sessionId = cookies.get("SESSION");
-
-        if (sessionId == null) {
-            return null;
-        }
-
+        if (sessionId == null) return null;
         return sessions.get(sessionId);
     }
 
     private String getCookies(HttpExchange exchange) {
-
         return exchange.getRequestHeaders()
                 .getOrDefault("Cookie", List.of(""))
                 .get(0);
+    }
+
+    protected String getBody(HttpExchange exchange) {
+        InputStream input = exchange.getRequestBody();
+        Charset utf8 = StandardCharsets.UTF_8;
+        InputStreamReader isr = new InputStreamReader(input, utf8);
+
+        try (BufferedReader reader = new BufferedReader(isr)) {
+            return reader.lines().collect(Collectors.joining(""));
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        return "";
+    }
+
+    protected void redirect303(HttpExchange exchange, String path) {
+        try {
+            exchange.getResponseHeaders().add("Location", path);
+            exchange.sendResponseHeaders(303, 0);
+            exchange.close();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 }
